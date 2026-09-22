@@ -1,0 +1,27 @@
+# Build products
+Siga.app/
+Siga Willow.app/
+Siga.zip
+Siga.dmg
+website/downloads/*.zip
+website/downloads/*.dmg
+website/downloads/*.sha256
+preview/*.app/
+preview/screens/
+
+# Private review material, never published
+[Bb][Rr][Aa][Nn][Dd]/[Pp][Rr][Oo][Mm][Pp][Tt][Ss]*
+handoff/
+diagnostics/
+assets/prompt.txt
+assets/generated-original.png
+
+.DS_Store
+
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+
+# Generated test harnesses
+tests/.build/

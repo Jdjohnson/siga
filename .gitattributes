@@ -1,0 +1,4 @@
+[Bb][Rr][Aa][Nn][Dd]/[Pp][Rr][Oo][Mm][Pp][Tt][Ss]* export-ignore
+website/downloads/*.zip export-ignore
+website/downloads/*.dmg export-ignore
+website/downloads/*.sha256 export-ignore
