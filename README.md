@@ -10,7 +10,7 @@ It lives in your menu bar. No account or extra audio driver needed.
 
 You’ll need an **Apple Silicon Mac** and **macOS 14.2 or later**. Tested on macOS 27; earlier versions haven’t been verified.
 
-[Download Sigá for Mac](https://getsiga.app/downloads/Siga.dmg?build=18) · Version 0.2, build 18 (release candidate). You can also [build from source](#build-from-source).
+[Download Sigá for Mac](https://getsiga.app/downloads/Siga.dmg?build=18) · Version 0.2, build 18. You can also [build from source](#build-from-source).
 
 Open Sigá, choose your dictation app, and set how quiet you want your music. Willow and superwhisper appear when installed. For other apps, choose **Use another app…** and dictate once to add them.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2 — Unreleased
+## 0.2 — September 23, 2026
 
 - Choose your dictation app in setup. Willow and superwhisper appear when installed; nothing is chosen for you, and Sigá follows only the apps you choose.
 - Add any other app with Use another app…: dictate once, and Sigá offers the app whose microphone it heard start and stop. The sheet names what to turn off in that app before Add works.
@@ -32,4 +32,4 @@
 - Recover through audio lifecycle changes and verify volume restoration.
 - Introduce the Everyday quiet brand, wave-accent wordmark, one-wave app icon, and small static website. Keep the three-wave menu-bar icon.
 
-The source targets Apple Silicon and macOS 14.2 or later. The signed app download and final hands-on release checks are still pending.
+The signed and notarized Mac download is available at [getsiga.app](https://getsiga.app/). Sigá targets Apple Silicon and macOS 14.2 or later; hands-on testing was on macOS 27.

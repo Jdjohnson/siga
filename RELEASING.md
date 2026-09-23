@@ -2,21 +2,21 @@
 
 The Mac download is `Siga.dmg`. Open it and drag Sigá into Applications. Building from source stays available for people who want to customize it.
 
-## Version 0.2 release candidate
+## Version 0.2 release
 
 Prepared September 22, 2026, build 18, from the reviewed all-dictation source. Fade B is the sole shipping fade (400 ms down, 850 ms up); the unused alternatives and preference override are removed. The owner accepted the listening session. Sleep/wake and Flow Command Mode are explicitly excluded from this release's acceptance requirements; do not reintroduce them through the general checklists below.
 
 The complete Mini integration evidence covers Willow, superwhisper, Wispr Flow dictation/Notetaker and the custom-add flow. Older macOS versions remain unverified and must not be advertised as tested.
 
-The owner-approved memory budget is 25 MiB physical footprint, with RSS, CPU and energy reported separately against the existing version. This supersedes the original 25 MiB RSS cap; historical footprint was about 13 MiB and RSS about 76.7 MiB. Measure the final package against the agreed criterion; footprint is not an RSS result. The exact final signed/notarized disk image still needs clean first-launch and Login Items acceptance before publication. A development smoke test is not that acceptance.
+On September 23, Jarad approved a 30 MiB settled physical-footprint limit. The installed build 18 measured 29.1 MiB in three idle readings after normal use, with RSS about 83 MiB recorded separately. This supersedes the earlier 25 MiB physical-footprint limit and the original 25 MiB RSS limit; it does not mean RSS met either limit. Jarad downloaded and installed the notarized DMG from the website, confirmed setup and normal lowering/restoration, and accepted that hands-on result. He explicitly waived the remaining clean Mac Mini first-launch and login checks for this release. Do not claim those waived checks passed. CPU and energy comparisons were not refreshed in this acceptance pass.
 
-Version 0.2 and build 18 are the release identifiers. Build 18 keeps the cream button-label color when controls are disabled. The proposed GitHub destination is `Jdjohnson/siga`; no existing Sigá repository or configured remote was found. Create the repository and enable public download links only as part of the authorized publication step. The website must retain its unavailable-download state until the notarized release is verified.
+Version 0.2 and build 18 are the release identifiers. Build 18 keeps the cream button-label color when controls are disabled. The public repository is [`Jdjohnson/siga`](https://github.com/Jdjohnson/siga). The notarized build 18 DMG is available at [getsiga.app](https://getsiga.app/) and in the [GitHub release](https://github.com/Jdjohnson/siga/releases/tag/v0.2-build18).
 
 The build checks the executable budget after signing as well as before it. The signer reserves 11 KB for the complete CMS signature, retaining the certificate chain, secure timestamp and hardened runtime; signing fails if a future signature no longer fits.
 
 The private release packet records source/app hashes, signing/notarization receipts and the status of each outstanding gate. Do not include that packet in the source archive.
 
-## Before the first app download
+## Checklist for future releases
 
 - Finish the hands-on checks in [CONTRIBUTING.md](CONTRIBUTING.md) using a build of the exact source being released.
 - Obtain a **Developer ID Application** signing identity and a notarization keychain profile. An **Apple Development** identity is not a substitute for outside-the-store distribution.
@@ -109,7 +109,7 @@ Build 12, version 0.1, archived 2026-09-14 with git 2.50.1 (Apple Git-155) and g
 
 Download the final DMG through the website. Open it in Finder and confirm the branded window contains Sigá and an Applications shortcut; the shortcut must point to `/Applications`. Check the bundled app's signature, stapled ticket, and executable hash against the verified input app. Both website download buttons must serve the same verified DMG.
 
-Test installation and first launch from that disk image in a clean, authorized macOS test environment. Restore the clean environment for repeat first-run and Login Items checks. The isolated preview is for reviewing the flow; it does not validate real macOS permission dialogs. Check actual speaker and headphone behavior separately on a physical Mac. Confirm it opens normally, shows the correct icon and welcome window, remembers the chosen volume and dictation apps, lowers the volume, and restores it after interruption, Restore, Disable, Quit, and device changes. Check behavior after restarting with Sigá added to Login Items. The release-specific exclusions above still apply.
+For future builds, test installation and first launch from the exact disk image in a clean, authorized macOS test environment. Restore the clean environment for repeat first-run and Login Items checks. The isolated preview does not validate real macOS permission dialogs. Check actual speaker and headphone behavior separately on a physical Mac, including saved settings and restoration after interruption, Restore, Disable, Quit, and device changes. Check behavior after restarting with Sigá added to Login Items. For build 18, the owner accepted the direct installation and live-use result and waived the remaining clean Mini and login checks as recorded above.
 
 Generate a checksum:
 
@@ -117,7 +117,7 @@ Generate a checksum:
 shasum -a 256 Siga.dmg
 ```
 
-Upload the DMG and checksum to the GitHub release only after those checks pass. Use the final release asset URL in the website and README. The website’s Mac download is deliberately unavailable until there is a verified signed artifact; replace that state with the real link at release time.
+The build 18 DMG and checksum are already attached to the GitHub release. Keep the website and README links pointed at that verified artifact.
 
 ## Website
 
