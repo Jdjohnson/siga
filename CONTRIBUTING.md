@@ -20,6 +20,8 @@ For onboarding, begin with the [isolated preview](preview/README.md). Check the 
 
 Run `tests/run.sh` before and after any change to `main.swift` or `Setup.swift`. It compiles the real engine, app class, and Muffle session against in-memory doubles, then checks the C processor with synthetic samples. It never plays, records, or changes system audio. A fixed defect gets a regression check there. `MUFFLE_ASAN=1 zsh tests/muffle/run.sh` also checks session lifetime with AddressSanitizer.
 
+For changes to the native controls, run `zsh tests/controls/run.sh` in a macOS GUI session. It inspects the actual controls and their accessible cells without presenting a window. It checks the effect names and slider values; keyboard and VoiceOver interaction still need a live check.
+
 ## Adding a dictation app
 
 Apps with a distinct microphone start/stop signal can be discovered through **Use another app…**. A row in `knownApps` ([Setup.swift](Setup.swift)) adds only two things: the exact names of the settings to turn off, and, with `tile: true`, a tile on the choose screen. A tile needs a complete record from the real app:

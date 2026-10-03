@@ -431,7 +431,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         level.textColor = Self.blue; level.alignment = .center
         place(level, in: panel, x: inset, top: layout.y(firstRun ? 108 : 100, 82), width: width, height: layout.y(firstRun ? 90 : 72, 68))
         slider.target = self; slider.action = #selector(volumeChanged); slider.isContinuous = true
-        slider.setAccessibilityLabel("Volume while dictating")
+        slider.cell?.setAccessibilityLabel("Volume while dictating")
         place(slider, in: panel, x: inset, top: layout.y(firstRun ? 206 : 178, 148), width: width, height: 32)
         place(label("Silent", size: 12, muted: true), in: panel, x: inset, top: layout.y(firstRun ? 242 : 214, 180), width: 100, height: 18)
         let end = label("Full volume", size: 12, muted: true); end.alignment = .right
@@ -440,7 +440,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
             place(label("Effect", size: 14, muted: true), in: page, x: 20, top: panelHeight + 16, width: 92, height: 22)
             effect.addItems(withTitles: ["Lower volume", "Muffle"])
             effect.target = self; effect.action = #selector(effectChanged)
-            effect.setAccessibilityLabel("Audio effect while dictating")
+            effect.cell?.setAccessibilityLabel("Audio effect while dictating")
             place(effect, in: page, x: 120, top: panelHeight + 12, width: layout.pageWidth - 140, height: 28)
             effectNote.font = .systemFont(ofSize: 12); effectNote.textColor = Self.body
             place(effectNote, in: page, x: 20, top: panelHeight + 46, width: layout.pageWidth - 40, height: 56)
@@ -544,7 +544,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
     func setFinishing(_ value: Bool) { finishing = value; updateNavigation() }
     private func updateLevel() {
         let value = Int(slider.doubleValue.rounded()); level.stringValue = "\(value)%"
-        slider.setAccessibilityValue("\(value) percent of your usual volume")
+        slider.cell?.setAccessibilityValueDescription("\(value) percent of your usual volume")
     }
     @objc private func volumeChanged() {
         guard !finishing else { return }

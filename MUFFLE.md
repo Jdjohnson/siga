@@ -15,8 +15,9 @@ The route excludes this process, validates stream layouts, and retains handles a
 - A signed transparent routing probe on MacBook Pro Speakers, 48 kHz stereo, received 463 callbacks and preserved every observed input sample exactly, then released its route. This proves callback equality, not an acoustic listening result.
 - A signed probe of the real session and processor passed 0/30/100%, interrupted return, normal return, explicit stop, and cancellation during setup. It completed three sessions in 9.16 seconds. With a generated 220 Hz + 4 kHz tone, measured output/input RMS was 0 at 0%, 0.212 at 30%, and 0.707 at 100%, as expected for the fixed filter.
 - The native app and real controller passed 30 physical routing cycles, an eight-second playback pause/resume, Restore, Disable and normal App termination. Only dictation discovery/input was synthetic. This exposed and fixed a real error: callback absence during paused playback must not latch Muffle unavailable. The run completed in 55.22 seconds.
+- `zsh tests/controls/run.sh`: 96 assertions pass against the real native controls. Labels and the spoken slider percentage now attach to the accessible cells, preserving the numeric value.
 - Both native Settings layouts were rendered from the real AppKit source and inspected in light and dark appearances. Interactive keyboard and VoiceOver checks remain open.
-- The release-signed executable is 217,440 bytes with strict signature verification. **The 200,000-byte build gate still fails and remains unchanged.**
+- The release-signed executable is 217,456 bytes with strict signature verification. **The 200,000-byte build gate still fails and remains unchanged.**
 
 All live results above used macOS 27.2 (26B5091g). Instrumented tests save counts and measurements, never audio samples. They do not substitute for dictation with a real microphone.
 
