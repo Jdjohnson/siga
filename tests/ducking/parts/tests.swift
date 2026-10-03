@@ -396,7 +396,7 @@ scenario("13 suppressed after manualRestore") {
     expect(d.suppressed && d.saved == nil && d.ramp == nil && FakeAudio.reads(of: kAudioDevicePropertyDeviceUID).count == captureReads, "input still active: no re-capture, no lowering")
     expect(FakeAudio.writesTo(10).count == 1, "the only write to the device was the restore")
     DispatchQueue.main.drain()
-    expect(r.displays.last?.title == "Restored · waiting for dictation to stop", "status explains the suppression (\(r.displays.last?.title ?? "nil"))")
+    expect(r.displays.last?.title == "Waiting for dictation to stop", "status explains the suppression (\(r.displays.last?.title ?? "nil"))")
     FakeAudio.inputRunning[7] = false
     d.readInput()
     expect(!d.suppressed && d.saved == nil, "input inactive clears suppression")

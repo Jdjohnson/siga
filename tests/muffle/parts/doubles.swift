@@ -35,6 +35,28 @@ enum FakeDSP {
     static func destroy(_ dsp: OpaquePointer) { live -= 1; MuffleDSPDestroy(dsp) }
 }
 
+// Keep the real C block token, while property changes stay within the simulated HAL.
+enum FakeListeners {
+    static var blocks: [OpaquePointer: AudioObjectPropertyListenerBlock] = [:]
+}
+func FakeMuffleListenerCreate(_ block: @escaping AudioObjectPropertyListenerBlock) -> OpaquePointer? {
+    guard let listener = MuffleListenerCreate(block) else { return nil }
+    FakeListeners.blocks[listener] = block
+    return listener
+}
+func FakeMuffleListenerDestroy(_ listener: OpaquePointer) {
+    FakeListeners.blocks.removeValue(forKey: listener)
+    MuffleListenerDestroy(listener)
+}
+func FakeMuffleListenerAdd(_ id: AudioObjectID, _ address: UnsafePointer<AudioObjectPropertyAddress>,
+                           _ queue: FakeQueue, _ listener: OpaquePointer) -> OSStatus {
+    FakeAudioObjectAddPropertyListenerBlock(id, address, queue, FakeListeners.blocks[listener]!)
+}
+func FakeMuffleListenerRemove(_ id: AudioObjectID, _ address: UnsafePointer<AudioObjectPropertyAddress>,
+                              _ queue: FakeQueue, _ listener: OpaquePointer) -> OSStatus {
+    FakeAudioObjectRemovePropertyListenerBlock(id, address, queue, FakeListeners.blocks[listener]!)
+}
+
 // One output (100, stream 101), the route's tap (300) and aggregate (200, streams 201/202).
 // A failed create still leaves its object behind, the harder case for cleanup.
 final class FakeHAL {

@@ -8,7 +8,7 @@ rm -rf Siga.app Siga.zip Siga.dmg   # every build starts from nothing, so no sta
 mkdir -p Siga.app/Contents/MacOS Siga.app/Contents/Resources
 cp assets/MenuIcon.pdf assets/AppIcon.icns assets/Wordmark.png Siga.app/Contents/Resources/
 mkdir -p tests/.build
-xcrun clang -std=c11 -target arm64-apple-macos14.2 -Os -Wall -Wextra -Werror -c MuffleDSP.c -o tests/.build/MuffleDSP.o
+xcrun clang -std=c11 -fblocks -target arm64-apple-macos14.2 -Os -Wall -Wextra -Werror -c MuffleDSP.c -o tests/.build/MuffleDSP.o
 xcrun swiftc -import-objc-header MuffleDSP.h -target arm64-apple-macos14.2 -Osize -whole-module-optimization -lto=llvm-thin -Xfrontend -disable-reflection-metadata -Xlinker -objc_stubs_small -Xlinker -no_exported_symbols -module-cache-path /private/tmp/siga-swift-cache main.swift Setup.swift Welcome.swift MuffleSession.swift tests/.build/MuffleDSP.o -o Siga.app/Contents/MacOS/Siga -framework AppKit -framework CoreAudio -framework ServiceManagement
 cat > Siga.app/Contents/Info.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

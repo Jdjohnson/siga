@@ -4,6 +4,14 @@
 #include <stdbool.h>
 
 CF_ASSUME_NONNULL_BEGIN
+/* Swift re-bridges closures on each call. Keep one copied block for matching Add/Remove calls. */
+typedef struct MuffleListener MuffleListener;
+MuffleListener * _Nullable MuffleListenerCreate(AudioObjectPropertyListenerBlock block);
+void MuffleListenerDestroy(MuffleListener *listener);
+OSStatus MuffleListenerAdd(AudioObjectID object, const AudioObjectPropertyAddress *address,
+                          dispatch_queue_t queue, MuffleListener *listener);
+OSStatus MuffleListenerRemove(AudioObjectID object, const AudioObjectPropertyAddress *address,
+                             dispatch_queue_t queue, MuffleListener *listener);
 /* Callback state. Control uses only the atomic setters and getters; MuffleRender owns the rest. */
 typedef struct MuffleDSP MuffleDSP;
 MuffleDSP * _Nullable MuffleDSPCreate(void);

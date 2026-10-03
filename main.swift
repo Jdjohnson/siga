@@ -202,14 +202,20 @@ final class Ducking {
     }
     func setMuffle(_ value: Bool) {
         guard value != muffleEnabled || muffleNote != nil else { return }
-        muffleEnabled = value; muffleUnavailable = false; muffleNote = nil; muffleTried = false; fault = nil
-        restore { success in if success { self.start() } }
+        muffleEnabled = value; fault = nil
+        restore { success in
+            // Apply the latest choice after the old session has reported its failure and released.
+            if success && self.muffle == nil {
+                self.muffleUnavailable = false; self.muffleNote = nil; self.muffleTried = false
+                self.start()
+            }
+        }
     }
     // Callback delivery is on this queue. Release completes before any fallback can capture volume.
     func muffleChanged() {
         guard let session = muffle else { return }
         if session.finished {
-            if muffleEnabled, let problem = session.problem {
+            if muffleEnabled, muffleNote == nil, let problem = session.problem {
                 muffleNote = session.unavailable ? "Muffle unavailable: \(problem)" : "Muffle stopped: \(problem). Will retry next dictation."
                 muffleUnavailable = session.unavailable
             }
@@ -230,7 +236,7 @@ final class Ducking {
         else if restoring { title = "Restoring sound" }
         else if !enabled { title = "Disabled" }
         else if !awake { title = "Sleeping" }
-        else if suppressed && inputActive { title = skipped ? "Volume was already off, so Sigá left it alone" : "Restored · waiting for dictation to stop" }
+        else if suppressed && inputActive { title = skipped ? "Volume was already off, so Sigá left it alone" : "Waiting for dictation to stop" }
         else if let session = muffle {
             switch session.phase {
             case .starting: title = session.waitingForPlayback ? "Waiting for playback" : "Preparing Muffle"
@@ -345,7 +351,14 @@ final class Ducking {
             let lowering = inputActive && !suppressed && duckGain < 1
             let next: Float32 = lowering ? duckGain : 1
             if lowering && saved == nil {
-                let captured = try SavedVolume.capture()
+                let captured: SavedVolume
+                do { captured = try SavedVolume.capture() }
+                catch where muffleEnabled {
+                    // An unavailable fallback must not stop detection or prevent the next Muffle attempt.
+                    suppressed = true
+                    muffleNote = "\(muffleNote ?? "Muffle unavailable.") Lower volume unavailable: \(error)"
+                    show(); return
+                }
                 // Already silent (another app muted the Mac): nothing to lower and nothing of Sigá's
                 // to restore. The skip holds until dictation stops, whatever the volume does meanwhile.
                 if captured.controls.allSatisfy({ $0.startingValue == 0 }) { suppressed = true; skipped = true }

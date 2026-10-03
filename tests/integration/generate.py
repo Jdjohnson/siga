@@ -29,7 +29,7 @@ audio=audio.replace('func proc_pidpath(', 'func FakeProcPidpath(')
 muffle=(repo/'tests/muffle/parts/doubles.swift').read_text()
 muffle=muffle[:muffle.index('// Work waits')]+muffle[muffle.index('enum FakeClock'):]
 muffle='typealias FakeQueue = DispatchQueue\n'+muffle
-hal=sorted(set(re.findall(r'func (FakeAudio\w+)\(',muffle)))
+hal=sorted(set(re.findall(r'func (Fake(?:Audio|MuffleListener)\w+)\(',muffle)))
 for name in hal:session=re.sub(r'\b'+name.removeprefix('Fake')+r'\b(?=\s*\()',name,session)
 for name in controllerCalls:core=re.sub(r'\b'+name+r'\b(?=\s*\()', 'Controller'+name,core)
 # Shared helpers use the route's actual IDs and formats; only hardware volume and dictation signals

@@ -154,7 +154,7 @@ final class MuffleSession {
     // Handles belong to the worker: only open() and close() touch them, and never concurrently.
     private final class Route {
         let dsp: OpaquePointer
-        private let queue: DispatchQueue, observer: AudioObjectPropertyListenerBlock
+        private let queue: DispatchQueue, observer: OpaquePointer
         private let uid = "io.mostlyserious.siga.muffle.\(UUID().uuidString)"
         private var tap: AudioObjectID = 0, tapUID = "", aggregate: AudioObjectID = 0
         private var output: AudioObjectID = 0, process: AudioObjectID = 0
@@ -163,10 +163,11 @@ final class MuffleSession {
 
         init?(queue: DispatchQueue, observer: @escaping AudioObjectPropertyListenerBlock) {
             guard let dsp = MuffleDSPCreate() else { return nil }
-            self.dsp = dsp; self.queue = queue; self.observer = observer
+            guard let listener = MuffleListenerCreate(observer) else { MuffleDSPDestroy(dsp); return nil }
+            self.dsp = dsp; self.queue = queue; self.observer = listener
         }
         // A live or unreleased IOProc may still read dsp; leaking it is the only safe choice.
-        deinit { if proc == nil { MuffleDSPDestroy(dsp) } }
+        deinit { MuffleListenerDestroy(observer); if proc == nil { MuffleDSPDestroy(dsp) } }
 
         func open() throws {
             try boundary()
@@ -248,7 +249,7 @@ final class MuffleSession {
             var failures: [String] = []
             listeners.removeAll { listener in
                 var a = address(listener.selector)
-                let status = AudioObjectRemovePropertyListenerBlock(listener.id, &a, queue, observer)
+                let status = MuffleListenerRemove(listener.id, &a, queue, observer)
                 if status == noErr || status == kAudioHardwareBadObjectError { return true }
                 failures.append(AudioFailure("Remove audio listener", status).description)
                 return false
@@ -291,7 +292,7 @@ final class MuffleSession {
         }
         private func observe(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) throws {
             var a = address(selector)
-            try check(AudioObjectAddPropertyListenerBlock(id, &a, queue, observer), "Observe audio output")
+            try check(MuffleListenerAdd(id, &a, queue, observer), "Observe audio output")
             listeners.append((id, selector))
         }
         private static func owns(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector, _ uid: String) throws -> Bool {

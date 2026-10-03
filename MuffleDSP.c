@@ -1,9 +1,25 @@
 #include "MuffleDSP.h"
+#include <Block.h>
 #include <math.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+MuffleListener *MuffleListenerCreate(AudioObjectPropertyListenerBlock block) {
+    return (MuffleListener *)Block_copy(block);
+}
+void MuffleListenerDestroy(MuffleListener *listener) {
+    Block_release((AudioObjectPropertyListenerBlock)listener);
+}
+OSStatus MuffleListenerAdd(AudioObjectID object, const AudioObjectPropertyAddress *address,
+                          dispatch_queue_t queue, MuffleListener *listener) {
+    return AudioObjectAddPropertyListenerBlock(object, address, queue, (AudioObjectPropertyListenerBlock)listener);
+}
+OSStatus MuffleListenerRemove(AudioObjectID object, const AudioObjectPropertyAddress *address,
+                             dispatch_queue_t queue, MuffleListener *listener) {
+    return AudioObjectRemovePropertyListenerBlock(object, address, queue, (AudioObjectPropertyListenerBlock)listener);
+}
 
 /* The IOProc may never wait on a lock, so the atomic types it uses must be lock-free. */
 _Static_assert(ATOMIC_BOOL_LOCK_FREE == 2, "atomic_bool must be lock-free");

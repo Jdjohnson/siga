@@ -58,7 +58,8 @@ for needle in ["final class MuffleSession", "func start()", "func stop()", "func
 hal = ["AudioObjectGetPropertyDataSize", "AudioObjectGetPropertyData", "AudioObjectAddPropertyListenerBlock",
        "AudioObjectRemovePropertyListenerBlock", "AudioHardwareCreateProcessTap", "AudioHardwareDestroyProcessTap",
        "AudioHardwareCreateAggregateDevice", "AudioHardwareDestroyAggregateDevice", "AudioDeviceCreateIOProcID",
-       "AudioDeviceDestroyIOProcID", "AudioDeviceStart", "AudioDeviceStop"]
+       "AudioDeviceDestroyIOProcID", "AudioDeviceStart", "AudioDeviceStop",
+       "MuffleListenerCreate", "MuffleListenerDestroy", "MuffleListenerAdd", "MuffleListenerRemove"]
 mapping = [(rf"\b{name}\b(?=\s*\()", f"Fake{name}") for name in hal] + [
     (r"\bDispatchQueue\b", "FakeQueue"),
     (r"\bProcessInfo\.processInfo\.systemUptime\b", "FakeClock.now"),
