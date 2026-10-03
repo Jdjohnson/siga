@@ -10,5 +10,6 @@ for name in ducking app; do
     ".build/$name" | tee ".build/$name.txt" | grep -E '^(FAIL|SUMMARY|passed)'
 done
 zsh muffle/run.sh
+zsh integration/run.sh
 xcrun clang -std=c11 -O2 -Wall -Wextra -Werror dsp.c ../MuffleDSP.c -framework CoreAudio -o .build/dsp
 .build/dsp | tee .build/dsp.txt

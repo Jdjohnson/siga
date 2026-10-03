@@ -11,10 +11,11 @@ The route excludes this process, validates stream layouts, and retains handles a
 ## Verified so far
 
 - `zsh tests/run.sh`: 387 controller assertions, 215 app assertions, 49 actual-session scenarios using a simulated HAL, and 36,389 C processor checks pass.
-- C processor AddressSanitizer/UndefinedBehaviorSanitizer and session AddressSanitizer runs pass.
+- C processor AddressSanitizer/UndefinedBehaviorSanitizer and session AddressSanitizer runs pass. The coupled controller/session harness passed six failure-path scenarios and 10,000 accelerated lifecycle cycles with both Swift and C under AddressSanitizer. Those checks use a simulated HAL, not physical routing.
 - A signed transparent routing probe on MacBook Pro Speakers, 48 kHz stereo, received 463 callbacks and preserved every observed input sample exactly, then released its route. This proves callback equality, not an acoustic listening result.
 - A signed probe of the real session and processor passed 0/30/100%, interrupted return, normal return, explicit stop, and cancellation during setup. It completed three sessions in 9.16 seconds. With a generated 220 Hz + 4 kHz tone, measured output/input RMS was 0 at 0%, 0.212 at 30%, and 0.707 at 100%, as expected for the fixed filter.
 - The native app and real controller passed 30 physical routing cycles, an eight-second playback pause/resume, Restore, Disable and normal App termination. Only dictation discovery/input was synthetic. This exposed and fixed a real error: callback absence during paused playback must not latch Muffle unavailable. The run completed in 55.22 seconds.
+- A later live timing run completed 100 physical cycles in 265.96 seconds with no leftover audio objects. Across 17,716 callbacks, processor p99 was below 18 microseconds with no observed overrun; the 10% callback budget was 1,066.7 microseconds. Startup p95 was 204.20 ms, above the proposed 150 ms target. Scheduled host-time separation was 23.333 ms; acoustic latency remains unmeasured.
 - `zsh tests/controls/run.sh`: 96 assertions pass against the real native controls. Labels and the spoken slider percentage now attach to the accessible cells, preserving the numeric value.
 - Both native Settings layouts were rendered from the real AppKit source and inspected in light and dark appearances. Interactive keyboard and VoiceOver checks remain open.
 - The release-signed executable is 217,456 bytes with strict signature verification. **The 200,000-byte build gate still fails and remains unchanged.**
@@ -24,11 +25,11 @@ All live results above used macOS 27.2 (26B5091g). Instrumented tests save count
 ## Open release gates
 
 - Resolve the executable-size budget without removing reliability checks or hiding code in another binary.
-- Complete matched app/coreaudiod CPU, wakeup, memory and latency measurements. The native-app smoke test measured 0.45–0.48% of one core during Muffle and 13.9 MiB physical footprint after 30 cycles. A matched 30-second comparison measured added app CPU of about 0.29 percentage points and added coreaudiod CPU of about 1.60 points, each relative to one core. That exceeds the proposed 1% combined target. Core Audio also showed substantial activity during rapid route creation; the combined performance gate remains open. These short windows are not a passing endurance result.
+- Resolve the combined CPU and startup targets. Matched ten-minute windows measured an added 0.275 percentage points in the app and 1.576 in coreaudiod, **1.850% of one core combined**, above the proposed 1% target. The separate 100-cycle timing run measured startup p95 at 204.20 ms versus the proposed 150 ms target. The app used 13.24 MiB at the end of steady Muffle. These figures include the same test-only microphone-use guard in both baseline and Muffle windows; other audio clients limit attribution.
 - Verify the everyday headphone/microphone pairing, actual dictation, listening quality, volume keys, device changes, disconnects, sleep/wake, permission denial/revocation, and the final release identity.
 - Verify interactive accessibility.
 - Demonstrate recovery from a genuinely blocked Core Audio call. Deadlines report unresponsiveness but cannot cancel a system call. A surviving callback returns to unfiltered playback when cleanup begins; successful cleanup still needs the OS call to return.
-- Complete the planned long-cycle test and 14 days of ordinary use in the same process. Accelerated simulation is not elapsed-time evidence.
+- Complete the planned 1,000 physical cycles over at least two hours and 14 days of ordinary use in the same process. The latest live run completed 100 cycles and its no-extra-audio-objects check, then was deliberately stopped to investigate CPU use. Accelerated simulation is not elapsed-time evidence.
 
 Keep the PR draft while these gates remain open. No notarized release is produced from this branch yet.
 
