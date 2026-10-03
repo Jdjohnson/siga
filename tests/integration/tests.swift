@@ -112,6 +112,18 @@ do {
  expect(hal.calls.filter {$0=="create tap"}.count==2,"next dictation retries Muffle after unavailable Lower fallback")
  finish(e)
 }
+// Unavailable effects keep a bounded explanation across repeated dictation attempts.
+do {
+ let e=queuedEngine();hal.fail("create tap");FakeAudio.settable[FakeHAL.output]=[];drain()
+ expect(e.muffleUnavailable && e.suppressed && e.fault==nil,"unavailable effects remain observed")
+ let note=e.muffleNote
+ for _ in 0..<3 {
+  FakeAudio.inputRunning[11]=false;e.readInput();FakeAudio.inputRunning[11]=true;e.readInput();drain()
+  expect(e.muffleNote==note,"repeated unavailable fallback does not grow the status message")
+ }
+ expect(hal.calls.filter {$0=="create tap"}.count==1,"latched setup failure waits for explicit retry")
+ finish(e)
+}
 // A setup failure for the old output must not overwrite the newer output-change retry decision.
 do {
  let e=queuedEngine()

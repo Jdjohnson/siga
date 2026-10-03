@@ -356,7 +356,9 @@ final class Ducking {
                 catch where muffleEnabled {
                     // An unavailable fallback must not stop detection or prevent the next Muffle attempt.
                     suppressed = true
-                    muffleNote = "\(muffleNote ?? "Muffle unavailable.") Lower volume unavailable: \(error)"
+                    if muffleNote?.contains("\nLower volume unavailable:") != true {
+                        muffleNote = "\(muffleNote ?? "Muffle unavailable.")\nLower volume unavailable: \(error)"
+                    }
                     show(); return
                 }
                 // Already silent (another app muted the Mac): nothing to lower and nothing of Sigá's
