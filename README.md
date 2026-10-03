@@ -2,7 +2,7 @@
 
 # Sigá
 
-Sigá lowers your Mac’s volume while you dictate, then gently returns it to its previous level. Your music keeps playing.
+Sigá softens your Mac’s sound while you dictate, then gently brings it back. Your music keeps playing.
 
 It lives in your menu bar. No account or extra audio driver needed.
 
@@ -23,8 +23,16 @@ Play your music and dictate as usual. The default keeps **30% of your starting v
 Use the menu to change the volume setting, choose dictation apps, or turn on **Launch at login**.
 
 - **Enabled** turns automatic lowering on or off.
-- **Restore volume** brings the sound back and keeps it there until the current recording ends.
+- **Restore sound** brings the sound back and keeps it there until the current recording ends.
 - **Quit Sigá** restores the volume before closing.
+
+## Muffle preview
+
+This branch adds **Muffle** in Settings, alongside the default **Lower volume** effect. The published build 18 download above still has Lower volume only. Muffle is not release-ready; see [validation and rollback](MUFFLE.md).
+
+Muffle softens higher frequencies and uses the same volume slider. At 100%, the filter stays active; at 0%, playback is silent. It processes playback locally and asks macOS for System Audio Recording permission on first use. It never opens your microphone, saves audio, or uploads it.
+
+The current route supports one mono or stereo Float32 output stream at 8–96 kHz. An output device that also exposes input streams is not yet supported. If Muffle cannot start, Sigá releases its route before trying Lower volume and shows the reason in its status. Lower still requires macOS volume controls on that output.
 
 ## Compatibility and volume
 
@@ -34,11 +42,11 @@ Use the menu to change the volume setting, choose dictation apps, or turn on **L
 
 ## How it works
 
-Sigá is written in Swift using AppKit, Core Audio, and ServiceManagement, with no third-party runtime dependencies.
+Sigá is written in Swift and C using AppKit, Core Audio, and ServiceManagement, with no third-party runtime dependencies.
 
-It checks whether a selected app is using its microphone, including helper processes inside that app’s bundle. Helpers outside the bundle can’t be followed. Sigá saves the current volume, lowers it while the microphone is active, and restores it afterward. Your audio and words never pass through Sigá. The app makes no network requests.
+It checks whether a selected app is using its microphone, including helper processes inside that app’s bundle. Helpers outside the bundle can’t be followed. Lower volume saves the current level, lowers it while the microphone is active, and restores it afterward. Muffle instead processes other apps’ playback through a private Core Audio tap and route. Sigá never opens the microphone or makes network requests.
 
-The [audio engine and menu](main.swift), [setup state and app discovery](Setup.swift), and [welcome window](Welcome.swift) contain the application code.
+The application code is in the [audio engine and menu](main.swift), [setup state and app discovery](Setup.swift), [welcome window](Welcome.swift), [Muffle session](MuffleSession.swift), and [Muffle processor](MuffleDSP.c).
 
 ## Build from source
 

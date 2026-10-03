@@ -5,7 +5,7 @@ let willow = "com.seewillow.WillowMac", superwhisper = "com.superduper.superwhis
 let willowRoot = "/Applications/com.seewillow.WillowMac.app/"
 let loginFailure = "Couldn’t update Login Items. Try again."
 let terminateTimeoutText = "Sigá couldn’t confirm the restore in time. Check your Mac’s volume controls."
-let terminateAlertTitle = "Sigá couldn’t restore your volume."
+let terminateAlertTitle = "Sigá couldn’t restore sound."
 
 func resetWorld() {
     UserDefaults.standard = UserDefaults()
@@ -55,7 +55,7 @@ do {
     app.startAudioIfNeeded()
     check(!app.audioStarted && Ducking.created == 0, "18g startAudioIfNeeded is a no-op while setup is incomplete")
     check(app.validateMenuItem(app.info), "16a the setup line validates enabled (actionable) during setup")
-    check(menuTitles(app.status.menu) == ["Finish setting up Sigá", "Enabled", "Restore volume", "-", "Dictation apps", "Settings…", "Launch at login", "Quit Sigá"],
+    check(menuTitles(app.status.menu) == ["Finish setting up Sigá", "Enabled", "Restore sound", "-", "Dictation apps", "Settings…", "Launch at login", "Quit Sigá"],
           "18h status menu order and titles (Quit renamed 'Quit Sigá')")
     check(app.status.menu?.delegate === app, "18i status menu delegate is the App (menuWillOpen refreshes login state)")
     let main = NSApp.mainMenu
@@ -69,7 +69,7 @@ do {
     UserDefaults.standard.set(true, forKey: "hasFinishedSetup"); UserDefaults.standard.set([willow], forKey: "dictationApps")
     app.startAudioIfNeeded()
     check(app.audioStarted && app.info.target == nil && app.info.action == nil, "18l after startAudioIfNeeded the info target/action are cleared")
-    check(!app.validateMenuItem(item(app, "Restore volume")!), "16b Restore volume stays disabled right after start (nothing saved yet)")
+    check(!app.validateMenuItem(item(app, "Restore sound")!), "16b Restore sound stays disabled right after start (nothing saved yet)")
 }
 do {
     NSRunningApplication.running = []
@@ -371,11 +371,11 @@ do {
     let app = launch(setupComplete: true)
     let items = app.status.menu!.items
     app.restorable = false
-    check(items.allSatisfy { app.validateMenuItem($0) == ($0.title != "Restore volume") }, "16c restorable=false: only Restore volume is disabled")
+    check(items.allSatisfy { app.validateMenuItem($0) == ($0.title != "Restore sound") }, "16c restorable=false: only Restore sound is disabled")
     app.restorable = true
     check(items.allSatisfy { app.validateMenuItem($0) }, "16d restorable=true: every item validates")
-    let restore = item(app, "Restore volume")!
-    check(restore.action == #selector(App.restoreManually) && restore.target === app, "16e Restore volume targets restoreManually on the App")
+    let restore = item(app, "Restore sound")!
+    check(restore.action == #selector(App.restoreManually) && restore.target === app, "16e Restore sound targets restoreManually on the App")
 }
 
 // ───────────────────────────── (17) display closure ─────────────────────────────
@@ -386,14 +386,14 @@ do {
     check(app.enableItem.state == .on && app.restorable == true, "17b enabled → on, restorable mirrored")
     check(app.status.button?.toolTip == "Sigá · Volume lowered · 30%", "17c status tooltip 'Sigá · <title>' without detail")
     check(app.status.button?.appearsDisabled == true, "17d appearsDisabled == lowered (true)")
-    check(app.validateMenuItem(item(app, "Restore volume")!), "16f Restore volume validates once restorable")
+    check(app.validateMenuItem(item(app, "Restore sound")!), "16f Restore sound validates once restorable")
     app.audio.display(AudioStatus(title: "Couldn’t restore volume", detail: "Restore failed: Saved output is unavailable", lowered: false, enabled: false, restorable: true))
     check(app.info.title == "Couldn’t restore volume" && app.info.toolTip == "Restore failed: Saved output is unavailable", "17e short title, technical detail in the tooltip")
     check(app.enableItem.state == .off, "17f enabled=false → off")
     check(app.status.button?.toolTip == "Sigá · Couldn’t restore volume\nRestore failed: Saved output is unavailable", "17g status tooltip appends the detail on a new line")
     check(app.status.button?.appearsDisabled == false, "17h appearsDisabled == lowered (false)")
     app.audio.display(AudioStatus(title: "Ready", detail: nil, lowered: false, enabled: true, restorable: false))
-    check(app.restorable == false && !app.validateMenuItem(item(app, "Restore volume")!), "17i restorable=false disables Restore volume again")
+    check(app.restorable == false && !app.validateMenuItem(item(app, "Restore sound")!), "17i restorable=false disables Restore sound again")
 }
 
 // ───────────────────────────── (19) refreshSetup snapshot ─────────────────────────────
@@ -445,7 +445,7 @@ do {
     app.toggleEnabled(); app.audio.queue.drain()
     check(app.audio.events.last == "enabled:true", "misc-q Enabled toggles the engine back on")
     app.restoreManually(); app.audio.queue.drain()
-    check(app.audio.events.last == "manualRestore", "misc-r Restore volume asks the engine for a manual restore")
+    check(app.audio.events.last == "manualRestore", "misc-r Restore sound asks the engine for a manual restore")
     app.saveVolume(120); app.audio.queue.drain()
     check(app.volumePercent == 100 && app.audio.events.last == "percent:100", "misc-s saveVolume clamps to 100 and forwards")
     let writes = UserDefaults.standard.writes.count
@@ -590,7 +590,7 @@ do { // S1 choose one app, leave the other; after a restart only that one is on,
     let items = appsMenu(again)
     check(items.map { $0.isSeparatorItem ? "-" : $0.title } == ["Willow", "superwhisper", "-", "Use another app…"]
           && items[0].state == .off && items[1].state == .on, "S1e the menu shows the same choice")
-    check(items[1].toolTip?.contains("Playback when recording to Keep Playing") == true && items[1].toolTip?.hasSuffix("Sigá handles the volume.") == true,
+    check(items[1].toolTip?.contains("Playback when recording to Keep Playing") == true && items[1].toolTip?.hasSuffix("Sigá handles your playback.") == true,
           "S1f the chosen app's menu item carries what to switch off, by name")
     NSRunningApplication.running.append(running("com.apple.Music", 9)); again.audio.queue.drain()
     check(!again.audio.events.contains { $0.hasPrefix("roots") }, "S1g an app that was not chosen is never turned on later")
@@ -629,7 +629,7 @@ do { // (9) Use another app…
     app.setupAction(.useAnotherApp); app.audio.queue.drain()
     let waiting = welcome.snapshots.last?.anotherApp
     check(waiting == AnotherAppSheet(.waiting, app: nil) && waiting?.canAdd == false, "9a the sheet opens waiting, with Add off")
-    check(waiting?.note == "Turn off your dictation app’s automatic muting, pausing, and volume lowering. Sigá handles the volume.",
+    check(waiting?.note == "Turn off your dictation app’s automatic muting, pausing, and volume lowering. Sigá handles your playback.",
           "9b what to switch off is on the sheet before Add can be pressed")
     check(app.audio.events == ["watchAll:on"] && !app.audioStarted, "9c it only watches; the engine is not started and nothing is lowered")
     let report = app.audio.report!
@@ -638,7 +638,7 @@ do { // (9) Use another app…
     let hearing = welcome.snapshots.last?.anotherApp
     check(hearing?.headline == "Hearing Wispr Flow. Stop dictating to finish." && hearing?.canAdd == false,
           "9d a call already under way is never offered; the app whose helper started is, by its outermost bundle")
-    check(hearing?.note == "In Wispr Flow, keep Mute music while dictating turned off. Sigá also lowers the volume during Flow Notetaker. Sigá handles the volume.", "9e a known app's setting is named exactly")
+    check(hearing?.note == "In Wispr Flow, keep Mute music while dictating turned off. Sigá also quiets playback during Flow Notetaker. Sigá handles your playback.", "9e a known app's setting is named exactly")
     app.setupAction(.addApp); app.audio.queue.drain()
     check(app.chosen.isEmpty && welcome.snapshots.last?.anotherApp == nil && app.audio.events.last == "watchAll:off",
           "9f Add before a stop was heard chooses nothing, and the watching ends with the sheet")
@@ -646,7 +646,7 @@ do { // (9) Use another app…
     app.audio.report!([]); app.audio.report!([flowHelper]); app.audio.report!([])
     let found = welcome.snapshots.last?.anotherApp
     check(found?.headline == "Found Wispr Flow." && found?.canAdd == true
-          && found?.warning == "Sigá lowers everything your Mac plays whenever Wispr Flow uses the microphone, including calls.", "9g start then stop enables Add, beside the warning")
+          && found?.warning == "Sigá quiets everything your Mac plays whenever Wispr Flow uses the microphone, including calls.", "9g start then stop enables Add, beside the warning")
     app.setupAction(.tryAgain)
     check(welcome.snapshots.last?.anotherApp == AnotherAppSheet(.waiting, app: nil), "9h Try again starts over")
     app.audio.report!([flowHelper]); app.audio.report!([])
@@ -690,16 +690,16 @@ do { // the done page only says it worked after it did
     check(line().hasPrefix("Your volume was already off, so Sigá left it alone. In superwhisper, set Playback when recording to Keep Playing.") && !line().contains("That’s it"),
           "M3 a dictation Sigá left alone says so, with what to switch off, and is not called success")
     app.audio.display(AudioStatus(title: "Volume lowered · 30%", detail: nil, lowered: true, enabled: true, restorable: true))
-    check(line() == "That’s it. Sigá lowered the volume.", "M4 a real lowering is success")
+    check(line() == "That’s it. Sigá quieted your playback.", "M4 a real lowering is success")
     app.audio.display(AudioStatus(title: "Ready", detail: nil, lowered: false, enabled: true, restorable: false, skipped: true))
-    check(line() == "That’s it. Sigá lowered the volume.", "M5 and stays so")
+    check(line() == "That’s it. Sigá quieted your playback.", "M5 and stays so")
 }
 
 check(knownApps.filter(\.tile).map(\.id) == [willow, superwhisper]
-      && knownApps.first { $0.id == willow }?.note == "In Willow, turn off Mute Audio While Dictating. Sigá also lowers the volume during Willow Scribe.",
+      && knownApps.first { $0.id == willow }?.note == "In Willow, turn off Mute Audio While Dictating. Sigá also quiets playback during Willow Scribe.",
       "R7 only completed tile records are offered with observed Willow audio guidance")
 
-check(knownApps.first { $0.id == superwhisper }?.note == "In superwhisper, set Playback when recording to Keep Playing. Sigá also lowers the volume during superwhisper meetings.",
+check(knownApps.first { $0.id == superwhisper }?.note == "In superwhisper, set Playback when recording to Keep Playing. Sigá also quiets playback during superwhisper meetings.",
       "R3/R6 superwhisper guidance names the observed playback control and meeting scope")
 
 do { // Compile the actual native tiles separately from this harness's AppKit doubles.
@@ -785,6 +785,27 @@ do { // Exercise the actual bootstrap without creating an app or touching audio.
         }
     }
     check(statuses == [0, 0], "R5 both lock failures finish app launch before a usable alert and never create the audio delegate")
+}
+
+
+// Muffle is opt-in, persists in Settings, and never starts while first-run setup is unfinished.
+do {
+    let app = launch(setupComplete: true)
+    check(!app.muffleSelected, "MF1 Lower remains the default for existing installations")
+    app.audio.queue.drain()
+    check(!app.audio.muffleEnabled, "MF2 default effect reaches the audio controller")
+    app.setupAction(.effect(true)); app.audio.queue.drain()
+    check(app.muffleSelected && app.audio.events.last == "muffle:true", "MF3 choosing Muffle persists and reaches the controller")
+    app.showSettings(); app.welcome?.onRefresh()
+    check(app.welcome?.snapshots.last?.muffle == true, "MF4 Settings reflects the persisted effect")
+    app.setupAction(.effect(false)); app.audio.queue.drain()
+    check(!app.muffleSelected && app.audio.events.last == "muffle:false", "MF5 Lower can be restored from Settings")
+    let first = launch(setupComplete: false)
+    first.setupAction(.effect(true))
+    check(UserDefaults.standard.values["audioEffect"] == nil && !first.audioStarted, "MF6 first-run input cannot enable or start Muffle")
+    let restored = launch(setupComplete: true) { UserDefaults.standard.set("muffle", forKey: "audioEffect") }
+    restored.audio.queue.drain()
+    check(restored.audio.muffleEnabled, "MF7 the selected effect survives app restart")
 }
 
 // ───────────────────────────── summary ─────────────────────────────

@@ -245,3 +245,28 @@ func AudioObjectRemovePropertyListener(_ object: AudioObjectID, _ address: Unsaf
     FakeAudio.listenersRemoved.append(selector)
     return noErr
 }
+
+// Only MuffleSession is replaced in controller tests; HAL/worker ownership is tested separately.
+final class MuffleSession {
+    var waitingForPlayback = false
+    enum Phase { case starting, active, returning, cleaning, fault }
+    var phase = Phase.starting, problem: String?, finished = false, unavailable = false
+    var engaged: Bool { phase == .active || phase == .returning }
+    var percent: Int, starts = 0, stops = 0, ticks = 0
+    let changed: () -> Void
+    init(queue: DispatchQueue, percent: Int, changed: @escaping () -> Void) {
+        self.percent = percent; self.changed = changed
+    }
+    func start() { starts += 1 }
+    func setPercent(_ value: Int) { percent = min(100, max(0, value)) }
+    func setEngaged(_ value: Bool) {
+        if phase == .starting && !value { stop() }
+        else if value && phase == .returning { phase = .active }
+        else if !value && phase == .active { phase = .returning }
+    }
+    func stop() { if phase != .cleaning { stops += 1; phase = .cleaning } }
+    func tick() { ticks += 1 }
+    func activate() { phase = .active; changed() }
+    func complete(_ error: String? = nil, unavailable: Bool = false) { problem = error; self.unavailable = unavailable; finished = true; changed() }
+    func failRelease() { phase = .fault; problem = "Release failed"; changed() }
+}
