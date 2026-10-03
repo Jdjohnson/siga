@@ -1160,6 +1160,119 @@ scenario("E9 watching every app for Use another app… only reads, and an unread
     expect(watcher.cancelled && d.watcher == nil && FakeAudio.writes.isEmpty && d.saved == nil, "stopped; the watcher never touched the volume")
 }
 
+
+// Muffle owns gain until release completes. These scenarios exercise the real controller.
+func startMuffle(_ d: Ducking) -> MuffleSession {
+    startWatching(d); d.muffleEnabled = true
+    FakeAudio.inputRunning[7] = true; d.readInput()
+    return d.muffle!
+}
+scenario("MF1 Muffle owns every level without capturing or changing hardware volume") {
+    for percent in [0, 30, 100] {
+        let (d, _) = fresh(percent: percent); let run = startMuffle(d); run.activate()
+        for _ in 0..<100 { d.poll!.handler!() }
+        expect(run.percent == percent && run.starts == 1 && d.saved == nil && d.ramp == nil, "one session at \(percent)%, with no hardware owner")
+        expect(FakeAudio.writes.isEmpty && FakeAudio.resolves.isEmpty, "no volume writes or resolution at \(percent)%")
+        expect(run.ticks == 100 && activePolls() == 1, "the existing poll supervises Muffle")
+    }
+}
+scenario("MF2 slider updates during setup and return; a fast restart reverses the same session") {
+    let (d, _) = fresh(); let run = startMuffle(d)
+    d.setPercent(0); expect(run.percent == 0 && run.starts == 1, "latest level retained during setup")
+    run.activate(); FakeAudio.inputRunning[7] = false; d.readInput()
+    expect(run.phase == .returning, "mic stop starts a return")
+    d.setPercent(100); FakeAudio.inputRunning[7] = true; d.readInput()
+    expect(d.muffle === run && run.phase == .active && run.percent == 100 && run.starts == 1, "same route reverses at latest level")
+}
+scenario("MF3 failed setup falls back only after release") {
+    let (d, _) = fresh(); let run = startMuffle(d)
+    FakeAudio.addDevice(10, uid: "UID-A", volume: 0.62); FakeAudio.defaultOutput = 10
+    run.stop(); d.readInput()
+    expect(d.saved == nil && FakeAudio.writes.isEmpty, "cleanup still owns audio")
+    run.complete("Unsupported output", unavailable: true)
+    expect(d.muffle == nil && d.saved != nil && d.muffleUnavailable && d.muffleNote != nil, "released route hands ownership to Lower and reports why")
+    finishFade(d); d.readInput()
+    expect(d.muffle == nil && FakeAudio.writes.count > 0, "polls do not retry unavailable setup")
+}
+scenario("MF4 failed cleanup retains ownership and a manual retry finishes exactly once") {
+    let (d, _) = fresh(); let run = startMuffle(d); run.activate()
+    var results: [Bool] = []
+    d.restore { results.append($0) }; run.failRelease()
+    expect(results == [false] && d.muffle === run && d.saved == nil && d.poll == nil, "failed release remains owned, reports once, stops polling")
+    d.manualRestore(); expect(run.stops == 2 && d.poll != nil, "explicit retry keeps supervision")
+    run.complete(); d.queue.drainDelayed()
+    expect(results == [false] && d.muffle == nil && d.suppressed && FakeAudio.writes.isEmpty, "successful retry clears route without fallback or duplicate completion")
+}
+scenario("MF5 switching from Lower restores the baseline before Muffle starts") {
+    let (d, _) = fresh(); startWatching(d)
+    let saved = makeSaved(); lower(d, saved); FakeAudio.inputRunning[7] = true
+    d.setMuffle(true)
+    expect(d.muffle == nil && d.restoring && d.saved != nil, "hardware restore completes first")
+    d.queue.drainDelayed()
+    expect(d.saved == nil && d.muffle != nil && FakeAudio.volumes[10]![0] == 0.62, "Muffle starts only with restored baseline")
+}
+scenario("MF6 switching to Lower waits for release and clears a previous Muffle problem") {
+    let (d, _) = fresh(); let run = startMuffle(d); run.activate()
+    FakeAudio.addDevice(10, uid: "UID-A", volume: 0.62); FakeAudio.defaultOutput = 10
+    d.setMuffle(false)
+    expect(d.saved == nil && d.restoring && run.phase == .cleaning, "no double attenuation during switch")
+    run.complete("Former Muffle issue")
+    expect(d.muffle == nil && d.saved != nil && d.muffleNote == nil, "Lower starts after release, with no stale mode error")
+}
+scenario("MF7 Restore, Disable, sleep and Quit supervise teardown even with no active input") {
+    for action in 0..<4 {
+        let (d, _) = fresh(); let run = startMuffle(d); run.activate(); d.clients = []; d.roots = []; FakeAudio.inputRunning[7] = false
+        var quits: [String?] = []
+        if action == 0 { d.manualRestore() }
+        if action == 1 { d.setEnabled(false) }
+        if action == 2 { d.setAwake(false) }
+        if action == 3 { d.terminate { quits.append($0) } }
+        expect(d.poll != nil && run.phase == .cleaning && d.restoring, "action \(action) keeps release supervised")
+        d.poll!.handler!(); expect(run.ticks == 1 && d.saved == nil, "release still ticks without starting Lower")
+        run.complete()
+        expect(d.muffle == nil && !d.restoring && FakeAudio.writes.isEmpty, "action \(action) releases cleanly")
+        if action > 0 { expect(d.poll == nil, "no idle Muffle poll remains") }
+        if action == 3 { expect(quits.count == 1 && quits[0] == nil, "Quit completes once on control queue") }
+    }
+}
+scenario("MF8 output change releases first, then retries Muffle on the next dictation") {
+    let (d, _) = fresh(); let run = startMuffle(d); run.activate()
+    FakeAudio.addDevice(10, uid: "UID-A", volume: 0.62); FakeAudio.defaultOutput = 10
+    d.outputChanged(); expect(run.phase == .cleaning && d.saved == nil, "new output is untouched during teardown")
+    run.complete(); expect(d.muffle == nil && d.saved != nil && d.muffleNote != nil, "current dictation uses Lower with explanation")
+    FakeAudio.inputRunning[7] = false; d.readInput(); finishFade(d); d.queue.drainDelayed()
+    FakeAudio.inputRunning[7] = true; d.readInput()
+    expect(d.muffle != nil && d.saved == nil, "next dictation tries Muffle on new output")
+}
+scenario("MF9 a missing dictation client does not drop supervision during the return") {
+    let (d, _) = fresh(); let run = startMuffle(d); run.activate()
+    d.setRoots([])
+    expect(d.clients.isEmpty && run.phase == .returning && d.poll != nil, "the route returns after the last chosen app goes away")
+    run.complete()
+    expect(d.poll == nil && d.muffle == nil, "no recurring Muffle work after the route is gone")
+}
+scenario("MF10 changing effect recovers from a prior hardware-volume error") {
+    let (d, _) = fresh(); startWatching(d); d.fault = "Output has no volume control"
+    FakeAudio.inputRunning[7] = true; d.setMuffle(true)
+    expect(d.fault == nil && d.muffle != nil, "a fresh effect selection can proceed after a successful restore")
+}
+scenario("MF12 changing effect while idle after a volume error restarts detection") {
+    let (d, _) = fresh(); startWatching(d); d.fault = "Output has no volume control"
+    d.stopPolling(); FakeAudio.inputRunning[7] = false
+    d.setMuffle(true)
+    expect(d.fault == nil && d.poll != nil && d.muffle == nil, "idle detection restarts after selecting Muffle")
+    FakeAudio.inputRunning[7] = true; d.poll?.handler?()
+    expect(d.muffle != nil, "the next dictation starts Muffle without a lifecycle event")
+}
+
+
+scenario("MF11 an internal teardown failure stops polling until explicit retry") {
+    let (d, _) = fresh(); let run = startMuffle(d); run.activate(); run.failRelease()
+    expect(d.muffle === run && d.poll == nil && d.saved == nil, "faulted route stays owned without idle polling or fallback")
+    d.manualRestore(); run.complete()
+    expect(d.muffle == nil && d.suppressed && d.muffleNote == nil, "successful retry clears the warning and respects Restore")
+}
+
 // ===== Observations (not counted as pass/fail) =====
 scenario("obs D poll tick on a replaced process object during a restore (same pid, no relaunch): reported, not required") {
     let (d, r) = fresh(); startWatching(d, r)

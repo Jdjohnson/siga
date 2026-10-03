@@ -228,7 +228,7 @@ final class Ducking {
     let queue = FakeQueue(label: "io.mostlyserious.siga.audio")
     let display: (AudioStatus) -> Void
     let initialPercent: Int
-    var enabled = true
+    var enabled = true, muffleEnabled = false
     var roots: [String] = []
     var report: (([String]) -> Void)?
     var events: [String] = []
@@ -238,6 +238,7 @@ final class Ducking {
     init(percent: Int, display: @escaping (AudioStatus) -> Void) {
         initialPercent = percent; self.display = display; Ducking.created += 1
     }
+    func setMuffle(_ value: Bool) { muffleEnabled = value; events.append("muffle:\(value)") }
     func setPercent(_ percent: Int) { events.append("percent:\(percent)") }
     func start() { events.append("start") }
     func show() { events.append("show") }

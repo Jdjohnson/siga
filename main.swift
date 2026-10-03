@@ -157,6 +157,11 @@ final class Ducking {
     var segment: Fade?
     var inputActive = false, suppressed = false, skipped = false, restoring = false
     var fault: String?
+    var muffleEnabled = false, muffleTried = false, muffleUnavailable = false
+    var muffle: MuffleSession?
+    var muffleNote: String?
+    var ownsAudio: Bool { saved != nil || muffle != nil }
+    var muffleNeedsPolling: Bool { muffle.map { !$0.finished && $0.phase != .fault } ?? false }
     var lastDisplay: AudioStatus?
     var restorations: [(Bool) -> Void] = []
     var operational: Bool { enabled && awake && !quitting }
@@ -178,7 +183,7 @@ final class Ducking {
         // A Core Audio reset drops client listeners; register again before deciding anything else.
         if restarted { removeListeners(); listen() }
         // A saved level still matters while paused or disabled; only its restore proceeds then.
-        guard operational || saved != nil else { return }
+        guard operational || ownsAudio else { return }
         if restarted {
             reconfigure()
         } else {
@@ -192,25 +197,62 @@ final class Ducking {
     }
     func setPercent(_ percent: Int) {
         duckGain = Float32(min(100, max(0, percent))) / 100
+        muffle?.setPercent(percent)
         readInput()
+    }
+    func setMuffle(_ value: Bool) {
+        guard value != muffleEnabled || muffleNote != nil else { return }
+        muffleEnabled = value; muffleUnavailable = false; muffleNote = nil; muffleTried = false; fault = nil
+        restore { success in if success { self.start() } }
+    }
+    // Callback delivery is on this queue. Release completes before any fallback can capture volume.
+    func muffleChanged() {
+        guard let session = muffle else { return }
+        if session.finished {
+            if muffleEnabled, let problem = session.problem {
+                muffleNote = session.unavailable ? "Muffle unavailable: \(problem)" : "Muffle stopped: \(problem). Will retry next dictation."
+                muffleUnavailable = session.unavailable
+            }
+            muffle = nil
+            if restoring { finishRestore(true) }
+            else { readInput() }
+            if !operational || clients.isEmpty || fault != nil { stopPolling() }
+        } else if session.phase == .fault {
+            stopPolling()
+            if restoring { finishRestore(false) }
+        }
+        show()
     }
     func show() {
         let title: String
-        if fault != nil { title = saved == nil ? "Audio error" : "Couldn’t restore volume" }
-        else if restoring { title = "Restoring volume" }
+        if let session = muffle, session.phase == .fault { title = "Couldn’t restore sound" }
+        else if fault != nil { title = saved == nil ? "Audio error" : "Couldn’t restore volume" }
+        else if restoring { title = "Restoring sound" }
         else if !enabled { title = "Disabled" }
         else if !awake { title = "Sleeping" }
         else if suppressed && inputActive { title = skipped ? "Volume was already off, so Sigá left it alone" : "Restored · waiting for dictation to stop" }
+        else if let session = muffle {
+            switch session.phase {
+            case .starting: title = session.waitingForPlayback ? "Waiting for playback" : "Preparing Muffle"
+            case .active: title = "Muffling · \(Int((duckGain * 100).rounded()))%"
+            case .returning, .cleaning: title = "Restoring sound"
+            case .fault: title = "Couldn’t restore sound"
+            }
+        }
         else if saved != nil { title = target == 1 ? "Restoring volume" : (ramp == nil ? "Volume lowered · \(Int((duckGain * 100).rounded()))%" : "Lowering volume") }
         else if clients.isEmpty { title = "Waiting for your dictation app" }
         else { title = "Ready" }
-        let status = AudioStatus(title: title, detail: fault, lowered: saved != nil && gain < 1,
-                                 enabled: enabled, restorable: saved != nil, skipped: skipped && inputActive)
+        let status = AudioStatus(title: title, detail: muffle?.problem ?? fault ?? muffleNote,
+                                 lowered: (saved != nil && gain < 1) || (muffle?.engaged ?? false),
+                                 enabled: enabled, restorable: ownsAudio, skipped: skipped && inputActive)
         guard status != lastDisplay else { return }
         lastDisplay = status
         DispatchQueue.main.async { self.display(status) }
     }
-    func stopPolling() { poll?.cancel(); poll = nil }
+    func stopPolling() {
+        if muffleNeedsPolling { startPolling(); return }
+        poll?.cancel(); poll = nil
+    }
     func stopRamp() { ramp?.cancel(); ramp = nil }
     func removeListeners() {
         for selector in listeners {
@@ -223,7 +265,7 @@ final class Ducking {
         stopPolling()
         // Every lifecycle retry starts clean; a restore that fails again sets the fault back.
         // Listeners stay registered so the saved output can still recover its level later.
-        clients = []; inputActive = false; fault = nil
+        clients = []; inputActive = false; fault = nil; muffleTried = false
         restore { success in
             if success && self.operational { self.start() }
         }
@@ -269,9 +311,12 @@ final class Ducking {
         } catch { fail(error) }
     }
     func startPolling() {
-        guard operational, fault == nil, !restoring, !clients.isEmpty, poll == nil else { return }
+        guard poll == nil, muffleNeedsPolling || (operational && fault == nil && !restoring && !clients.isEmpty) else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.setEventHandler { [weak self] in self?.readInput() }
+        timer.setEventHandler { [weak self] in
+            self?.muffle?.tick()
+            self?.readInput()
+        }
         timer.schedule(deadline: .now(), repeating: .milliseconds(100), leeway: .milliseconds(10))
         poll = timer
         timer.activate()
@@ -280,8 +325,23 @@ final class Ducking {
         guard operational, fault == nil else { return }
         do {
             inputActive = try anyActive(clients, isInput)
-            if !inputActive { suppressed = false; skipped = false }
+            if !inputActive { suppressed = false; skipped = false; muffleTried = false }
             guard !restoring else { return }
+            let wantsMuffle = muffleEnabled && inputActive && !suppressed
+            if let session = muffle {
+                session.setEngaged(wantsMuffle)
+                show(); return
+            }
+            if wantsMuffle && !muffleTried && !muffleUnavailable {
+                if saved != nil {
+                    restore { success in if success { self.readInput() } }
+                    return
+                }
+                muffleTried = true; muffleNote = nil
+                let session = MuffleSession(queue: queue, percent: Int((duckGain * 100).rounded())) { [weak self] in self?.muffleChanged() }
+                muffle = session; startPolling(); session.start()
+                show(); return
+            }
             let lowering = inputActive && !suppressed && duckGain < 1
             let next: Float32 = lowering ? duckGain : 1
             if lowering && saved == nil {
@@ -338,6 +398,12 @@ final class Ducking {
         timer.activate()
     }
     func outputChanged() {
+        muffleUnavailable = false; muffleNote = nil
+        if let muffle {
+            muffleTried = true
+            muffleNote = "Output changed; Muffle will retry next dictation"
+            muffle.stop(); startPolling(); show(); return
+        }
         guard let saved else {
             // Nothing needs restoring; a new output is the moment to try watching again.
             if fault != nil { fault = nil; start(); startPolling(); show() }
@@ -367,6 +433,10 @@ final class Ducking {
         stopRamp(); target = 1
         restorations.append(completion)
         guard !restoring else { return }
+        if let muffle {
+            restoring = true
+            muffle.stop(); startPolling(); show(); return
+        }
         guard let saved else { finishRestore(true); return }
         restoring = true
         do {
@@ -424,6 +494,7 @@ final class Ducking {
         stopPolling(); removeListeners()
         restore { success in
             guard !success else { completion(nil); return }
+            if self.muffle != nil { completion("Muffle could not finish releasing audio before quitting."); return }
             let level = self.saved?.controls.first.map { Int(($0.startingValue * 100).rounded()) }
             completion(level.map { "Set it back to about \($0)% with your Mac’s volume controls." }
                        ?? "Use your Mac’s volume controls to set it back.")
@@ -469,6 +540,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
     var setupComplete: Bool {
         UserDefaults.standard.bool(forKey: "hasFinishedSetup") && UserDefaults.standard.object(forKey: "dictationApps") != nil
     }
+    var muffleSelected: Bool { (UserDefaults.standard.object(forKey: "audioEffect") as? String) == "muffle" }
     var volumePercent: Int {
         let stored = UserDefaults.standard.object(forKey: "volumePercent") as? Int ?? 30
         return min(100, max(0, stored))
@@ -496,7 +568,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
         menu.addItem(info)
         enableItem = add("Enabled", #selector(toggleEnabled), to: menu)
         enableItem.state = .on
-        add("Restore volume", #selector(restoreManually), to: menu)
+        add("Restore sound", #selector(restoreManually), to: menu)
         menu.addItem(.separator())
         let apps = NSMenuItem(title: "Dictation apps", action: nil, keyEquivalent: "")
         apps.submenu = appsMenu; menu.addItem(apps)
@@ -531,8 +603,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
         guard setupComplete, !audioStarted else { return }
         audioStarted = true
         info.target = nil; info.action = nil
-        let roots = runningRoots(), percent = volumePercent
+        let roots = runningRoots(), percent = volumePercent, muffle = muffleSelected
         audio.queue.async {
+            self.audio.muffleEnabled = muffle
             self.audio.setPercent(percent)
             self.audio.roots = roots
             self.audio.start()
@@ -600,7 +673,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
         reconcileStartupError()
         let sheet = discovery.map { AnotherAppSheet($0.phase, app: candidate()) }
         welcome.update(SetupSnapshot(apps: dictationApps(), startup: startupState(), startupError: startupError,
-                                     session: session, anotherApp: sheet))
+                                     session: session, muffle: muffleSelected, anotherApp: sheet))
     }
     func setupAction(_ action: SetupAction) {
         switch action {
@@ -617,6 +690,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
                let settings = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") {
                 NSWorkspace.shared.open(settings)
             }
+        case .effect(let muffle):
+            guard setupComplete else { return }
+            UserDefaults.standard.set(muffle ? "muffle" : "lower", forKey: "audioEffect")
+            if audioStarted { audio.queue.async { self.audio.setMuffle(muffle) } }
+            refreshSetup()
         case .login(let enabled): setLogin(enabled)
         case .openLoginItems: SMAppService.openSystemSettingsLoginItems()
         }
@@ -770,7 +848,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVali
         let finished = done.wait(timeout: .now() + .seconds(3)) == .success
         let note = finished ? advice : "Sigá couldn’t confirm the restore in time. Check your Mac’s volume controls."
         // A timeout with nothing lowered is not a failed restore, so it passes silently.
-        if let note, !poweringOff, finished || restorable { notice("Sigá couldn’t restore your volume.", note) }
+        if let note, !poweringOff, finished || restorable { notice("Sigá couldn’t restore sound.", note) }
         return .terminateNow
     }
 }

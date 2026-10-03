@@ -14,11 +14,11 @@ Describe the trigger, what happened, what should have happened, your macOS versi
 
 For audio changes, check normal dictation, interrupted dictation, manual Restore, Disable, Quit, changing speakers or headphones, disconnect/reconnect, and sleep/wake. Confirm the original volume comes back on the correct device, and that Quit with the original output disconnected still quits with a single message. Record what you actually tested; a clean build is not proof of audio behavior.
 
-For volume settings, check 0%, 30%, and 100%; changing the setting during a fade; and changing it after manual Restore. The original baseline must stay intact. At 100%, there should be no repeated capture or volume writes.
+For volume settings, check 0%, 30%, and 100%; changing the setting during a fade; and changing it after manual Restore. The original baseline must stay intact. Lower volume at 100% does no capture or volume writes. Muffle at 100% keeps the fixed filter active and never writes hardware volume. Check both effects and switching between them.
 
 For onboarding, begin with the [isolated preview](preview/README.md). Check the choose screen with no apps, one, many, and a long name; the Use another app… sheet through waiting, hearing, found, Try again, and Cancel; the One thing first page after an unavailable volume check (Open Sound settings and Check again), optional login approval and errors, Back navigation, ⌘W and ⌘Q, keyboard controls, and VoiceOver. Closing unfinished setup must leave automatic lowering inactive. First-run volume stays a draft until Start Sigá and survives Back and Check again; Settings changes save immediately. Recheck real prerequisites at Start, and confirm closing during that check cannot complete setup. Test actual system actions separately in a clean macOS VM with the final signed app.
 
-Run `tests/run.sh` before and after any change to `main.swift` or `Setup.swift`. It compiles the real engine and the real app class against in-memory doubles, and it never plays, records, or changes audio. A fixed defect gets one assertion there.
+Run `tests/run.sh` before and after any change to `main.swift` or `Setup.swift`. It compiles the real engine, app class, and Muffle session against in-memory doubles, then checks the C processor with synthetic samples. It never plays, records, or changes system audio. A fixed defect gets a regression check there. `MUFFLE_ASAN=1 zsh tests/muffle/run.sh` also checks session lifetime with AddressSanitizer.
 
 ## Adding a dictation app
 

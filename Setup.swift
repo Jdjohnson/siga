@@ -4,7 +4,7 @@ enum SetupStep: Int, CaseIterable { case choose, volume, attention, complete }
 enum StartupState: Equatable { case off, on, needsApproval, unavailable }
 enum SetupAction {
     case choose(String, Bool), useAnotherApp, tryAgain, addApp, cancelAnotherApp
-    case soundSettings, login(Bool), openLoginItems
+    case soundSettings, login(Bool), openLoginItems, effect(Bool)
 }
 
 struct DictationApp: Equatable {
@@ -17,17 +17,17 @@ struct DictationApp: Equatable {
 // Any app can be added with Use another app…; a row here only adds a tile or the exact setting names.
 let knownApps = [
     DictationApp(id: "com.seewillow.WillowMac", name: "Willow",
-                 note: "In Willow, turn off Mute Audio While Dictating. Sigá also lowers the volume during Willow Scribe.", tile: true),
+                 note: "In Willow, turn off Mute Audio While Dictating. Sigá also quiets playback during Willow Scribe.", tile: true),
     DictationApp(id: "com.superduper.superwhisper", name: "superwhisper",
-                 note: "In superwhisper, set Playback when recording to Keep Playing. Sigá also lowers the volume during superwhisper meetings.", tile: true),
+                 note: "In superwhisper, set Playback when recording to Keep Playing. Sigá also quiets playback during superwhisper meetings.", tile: true),
     DictationApp(id: "com.electron.wispr-flow", name: "Wispr Flow",
-                 note: "In Wispr Flow, keep Mute music while dictating turned off. Sigá also lowers the volume during Flow Notetaker."),
+                 note: "In Wispr Flow, keep Mute music while dictating turned off. Sigá also quiets playback during Flow Notetaker."),
     DictationApp(id: "com.prakashjoshipax.VoiceInk", name: "VoiceInk",
                  note: "In VoiceInk, turn off Mute Audio While Recording and Pause Media While Recording."),
     DictationApp(id: "now.typeless.desktop", name: "Typeless", note: "In Typeless, turn off Mute when dictating."),
 ]
 let anyAppNote = "Turn off your dictation app’s automatic muting, pausing, and volume lowering."
-let sigaHandlesIt = " Sigá handles the volume."
+let sigaHandlesIt = " Sigá handles your playback."
 
 func dictationApp(id: String, path: String) -> DictationApp {
     var app = knownApps.first { $0.id == id }
@@ -60,7 +60,7 @@ enum Session: Equatable {
     func line(_ apps: [DictationApp]) -> String {
         switch self {
         case .none: return "Try it now. Play something, then dictate."
-        case .lowered: return "That’s it. Sigá lowered the volume."
+        case .lowered: return "That’s it. Sigá quieted your playback."
         case .skipped:
             let notes = chosenNotes(apps)
             return "Your volume was already off, so Sigá left it alone. " + (notes.isEmpty ? anyAppNote + sigaHandlesIt : notes)
@@ -107,7 +107,7 @@ struct AnotherAppSheet: Equatable {
         case .heard: headline = "Found \(app?.name ?? "your app")."
         }
         note = (app?.note ?? anyAppNote) + sigaHandlesIt
-        warning = app.map { "Sigá lowers everything your Mac plays whenever \($0.name) uses the microphone, including calls." }
+        warning = app.map { "Sigá quiets everything your Mac plays whenever \($0.name) uses the microphone, including calls." }
         if case .heard = phase, app != nil { canAdd = true } else { canAdd = false }
     }
 }
@@ -118,6 +118,7 @@ struct SetupSnapshot {
     var startup: StartupState = .off
     var startupError: String?
     var session = Session.none
+    var muffle = false
     var anotherApp: AnotherAppSheet?
     var canContinue: Bool { apps.contains(where: \.chosen) }    // nothing is ever chosen for the person
 }

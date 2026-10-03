@@ -21,7 +21,7 @@ private struct WelcomeLayout {
     var pageBottom: CGFloat { footerBottom + BrandButton.height + (compact ? 16 : 20) }
     func pageHeight(for step: SetupStep, firstRun: Bool) -> CGFloat {
         switch step {
-        case .volume: return firstRun ? y(340, 278) : y(272, 210)
+        case .volume: return firstRun ? y(340, 278) : y(344, 314)
         case .attention: return y(260, 224)
         default: return y(260, 220)
         }
@@ -174,6 +174,8 @@ final class Welcome: NSWindowController, NSWindowDelegate {
     private var pageHeight: NSLayoutConstraint!
     private let layout: WelcomeLayout
     private let slider: NSSlider
+    private let effect = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let effectNote = NSTextField(wrappingLabelWithString: "")
     private let level = NSTextField(labelWithString: "")
     private let login = NSButton(checkboxWithTitle: "Open Sigá when I log in", target: nil, action: nil)
     private let loginNote = NSTextField(labelWithString: "")
@@ -413,7 +415,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         let page = pages[SetupStep.volume.rawValue]
         page.setAccessibilityLabel("Find your quiet.")
         let panel = QuietPanel()
-        let panelHeight = layout.y(272, 210)
+        let panelHeight = layout.y(firstRun ? 272 : 240, 210)
         place(panel, in: page, x: 0, top: 0, width: layout.pageWidth, height: panelHeight)
         let inset: CGFloat = 32, width = layout.pageWidth - 64
         let title = label("Find your quiet.", size: layout.y(30, 26), weight: .semibold, tracking: -1)
@@ -425,16 +427,25 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         let caption = label("Choose your volume while you dictate.", size: 14, muted: true)
         caption.alignment = .center
         place(caption, in: panel, x: inset, top: layout.y(68, 54), width: width, height: 24)
-        level.font = .monospacedDigitSystemFont(ofSize: layout.y(72, 56), weight: .bold)
+        level.font = .monospacedDigitSystemFont(ofSize: layout.y(firstRun ? 72 : 60, 56), weight: .bold)
         level.textColor = Self.blue; level.alignment = .center
-        place(level, in: panel, x: inset, top: layout.y(108, 82), width: width, height: layout.y(90, 68))
+        place(level, in: panel, x: inset, top: layout.y(firstRun ? 108 : 100, 82), width: width, height: layout.y(firstRun ? 90 : 72, 68))
         slider.target = self; slider.action = #selector(volumeChanged); slider.isContinuous = true
         slider.setAccessibilityLabel("Volume while dictating")
-        place(slider, in: panel, x: inset, top: layout.y(206, 148), width: width, height: 32)
-        place(label("Silent", size: 12, muted: true), in: panel, x: inset, top: layout.y(242, 180), width: 100, height: 18)
-        let end = label("Unchanged", size: 12, muted: true); end.alignment = .right
-        place(end, in: panel, x: layout.pageWidth - inset - 100, top: layout.y(242, 180), width: 100, height: 18)
-        guard firstRun else { return }
+        place(slider, in: panel, x: inset, top: layout.y(firstRun ? 206 : 178, 148), width: width, height: 32)
+        place(label("Silent", size: 12, muted: true), in: panel, x: inset, top: layout.y(firstRun ? 242 : 214, 180), width: 100, height: 18)
+        let end = label("Full volume", size: 12, muted: true); end.alignment = .right
+        place(end, in: panel, x: layout.pageWidth - inset - 100, top: layout.y(firstRun ? 242 : 214, 180), width: 100, height: 18)
+        if !firstRun {
+            place(label("Effect", size: 14, muted: true), in: page, x: 20, top: panelHeight + 16, width: 92, height: 22)
+            effect.addItems(withTitles: ["Lower volume", "Muffle"])
+            effect.target = self; effect.action = #selector(effectChanged)
+            effect.setAccessibilityLabel("Audio effect while dictating")
+            place(effect, in: page, x: 120, top: panelHeight + 12, width: layout.pageWidth - 140, height: 28)
+            effectNote.font = .systemFont(ofSize: 12); effectNote.textColor = Self.body
+            place(effectNote, in: page, x: 20, top: panelHeight + 46, width: layout.pageWidth - 40, height: 56)
+            return
+        }
         login.target = self; login.action = #selector(loginChanged)
         login.attributedTitle = NSAttributedString(string: login.title, attributes:
             [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: Self.teal])
@@ -482,6 +493,10 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         finishing = false; step = .complete; showStep()
     }
     func update(_ value: SetupSnapshot) {
+        effect.selectItem(at: value.muffle ? 1 : 0)
+        effectNote.stringValue = value.muffle
+            ? "Softens all playback, including calls. Audio stays on your Mac and is never saved. macOS asks for system audio access on first use."
+            : "Gently lowers your Mac’s volume, then restores it when you stop dictating."
         let approval = value.startup == .needsApproval
         login.state = value.startup == .on || approval ? .on : .off
         loginNote.stringValue = value.startupError ?? (approval ? "Allow Sigá in Login Items to turn this on." : "")
@@ -502,7 +517,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         pageDocument.scroll(.zero)
         back.isHidden = step == .choose || step == .complete || !firstRun
         callout.stringValue = step == .choose || step == .attention
-            ? "Sigá never hears you. It only controls your volume."
+            ? "Sigá never accesses your microphone."
             : "Find Sigá in your menu bar."
         updateNavigation()
         // Keyboard focus, and its ring, only when the person has asked for it system-wide.
@@ -523,7 +538,7 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         case .volume: next.title = finishing ? "Checking…" : (firstRun ? "Start Sigá" : "Done")
         case .attention: next.title = finishing ? "Checking…" : "Check again"
         }
-        for control in [next, back, slider, login, loginItems, soundSettings] { control.isEnabled = !finishing }
+        for control in [next, back, slider, effect, login, loginItems, soundSettings] { control.isEnabled = !finishing }
         if step == .choose { next.isEnabled = canContinue }
     }
     func setFinishing(_ value: Bool) { finishing = value; updateNavigation() }
@@ -536,6 +551,10 @@ final class Welcome: NSWindowController, NSWindowDelegate {
         slider.doubleValue = slider.doubleValue.rounded(); updateLevel()
         // First-run values remain a draft until the person starts Sigá.
         if !firstRun { onVolume(slider.integerValue) }
+    }
+    @objc private func effectChanged() {
+        guard !finishing else { return }
+        onAction(.effect(effect.indexOfSelectedItem == 1))
     }
     @objc private func loginChanged() { onAction(.login(login.state == .on)) }
     @objc private func openLoginItems() { onAction(.openLoginItems) }

@@ -82,6 +82,7 @@ final class Preview: NSObject, NSApplicationDelegate {
             discovery = nil; value.anotherApp = nil
         case .cancelAnotherApp: discovery = nil; value.anotherApp = nil
         case .soundSettings: volumeAvailable = true
+        case .effect(let muffle): value.muffle = muffle
         case .openLoginItems: value.startup = .on
         case .login(let enabled):
             value.startupError = nil
@@ -164,6 +165,10 @@ if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render" {
     preview.value = SetupSnapshot(apps: Preview.records(2), startupError: "Couldn’t update Login Items. Try again."); try render("login-error", step: .volume)
     preview.value = SetupSnapshot(apps: Preview.records(2)); try render("one-thing-first", step: .attention)
     try render("settings", step: .volume, firstRun: false)
+    preview.value.muffle = true; try render("settings-muffle", step: .volume, firstRun: false)
+    application.appearance = NSAppearance(named: .darkAqua)
+    try render("settings-muffle-dark", step: .volume, firstRun: false)
+    preview.value.muffle = false; try render("settings-dark", step: .volume, firstRun: false)
 } else {
     application.setActivationPolicy(.regular); application.delegate = preview; application.run()
 }
